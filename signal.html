@@ -1,0 +1,243 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b1722">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Мы">
+<title>Мы</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💌%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#1b1722;
+    --tile:#2a2233;
+    --tile-press:#35293f;
+    --ink:#f6eef2;
+    --muted:#a89bb0;
+    --rose:#ff7a93;
+    --peach:#ffb48a;
+    --lilac:#b79cff;
+    --count:#3a2a3c;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"Nunito","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;-webkit-user-select:none;
+    display:flex;flex-direction:column;
+    padding:20px 18px 18px;
+  }
+  header{padding:6px 4px 18px}
+  header h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.01em}
+  header p{margin:4px 0 0;color:var(--muted);font-size:15px}
+
+  .grid{
+    flex:1;min-height:0;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr;
+    gap:14px;
+    max-height:620px;
+  }
+  .tile{
+    position:relative;
+    border:0;border-radius:26px;
+    background:var(--tile);
+    color:var(--ink);
+    font:inherit;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    padding:14px;
+    cursor:pointer;
+    overflow:hidden;
+    transition:transform .12s ease, background .2s ease;
+  }
+  .tile:active{transform:scale(.95);background:var(--tile-press)}
+  .tile:focus-visible{outline:3px solid var(--lilac);outline-offset:3px}
+  .tile .ico{font-size:44px;line-height:1}
+  .tile .lbl{font-size:19px;font-weight:800}
+  .tile .sub{font-size:13px;color:var(--muted);min-height:1.2em}
+
+  .tile.call{background:linear-gradient(160deg,#ff7a93,#e85d86);color:#2a0d18}
+  .tile.call .sub{color:#5a2234}
+  .tile.miss{background:linear-gradient(160deg,#b79cff,#8f7bf0);color:#1e1440}
+  .tile.miss .sub{color:#3f3070}
+  .tile.third{background:linear-gradient(160deg,#ffb48a,#ff9a6b);color:#33180a}
+  .tile.third .sub{color:#6b3a1f}
+
+  .tile.sent::after{
+    content:"";position:absolute;inset:0;
+    background:rgba(255,255,255,.35);
+    animation:flash .5s ease-out forwards;
+  }
+  @keyframes flash{from{opacity:1}to{opacity:0}}
+  .tile[disabled]{cursor:default}
+
+  .count{
+    cursor:default;
+    background:var(--count);
+    border-radius:26px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:14px;text-align:center;
+  }
+  .count .num{font-size:64px;font-weight:800;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .count .cap{margin-top:8px;font-size:16px;font-weight:700}
+  .count .det{margin-top:4px;font-size:13px;color:var(--muted)}
+
+  .toast{
+    position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));
+    transform:translate(-50%,40px);
+    background:var(--ink);color:#1b1722;
+    padding:12px 20px;border-radius:999px;
+    font-weight:700;font-size:15px;
+    opacity:0;pointer-events:none;
+    transition:transform .25s ease, opacity .25s ease;
+    max-width:88vw;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  .toast.err{background:#ffd9d9;color:#5a1010}
+
+  @media (max-height:640px){
+    .tile .ico{font-size:34px}
+    .count .num{font-size:50px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .tile,.toast{transition:none}
+    .tile.sent::after{animation:none;opacity:0}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="title"></h1>
+  <p id="subtitle"></p>
+</header>
+
+<main class="grid" id="grid">
+  <button class="tile call"  data-i="0" type="button"></button>
+  <button class="tile miss"  data-i="1" type="button"></button>
+  <button class="tile third" data-i="2" type="button"></button>
+  <div class="count" id="count" role="status" aria-live="polite">
+    <div class="num" id="days">0</div>
+    <div class="cap" id="cap">дней вместе</div>
+    <div class="det" id="det"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ================= НАСТРОЙКИ (правь тут) ================= */
+const CFG = {
+  title: "Мы",
+  subtitle: "Нажми, и я сразу узнаю",
+
+  // Тема ntfy: придумай длинное уникальное имя, чтобы никто не угадал.
+  // В приложении ntfy на телефоне подпишись на ту же тему.
+  ntfyServer: "https://ntfy.sh",
+  ntfyTopic:  "my",
+
+  // Дата начала отношений: ГГГГ-ММ-ДД
+  startDate: "2025-06-02",
+
+  // Три кнопки: что показано и что придёт тебе в пуше
+  buttons: [
+    { icon: "📞", label: "Позвони",  sub: "хочу услышать тебя", push: "📞 Позвони мне, пожалуйста" },
+    { icon: "💜", label: "Скучаю",   sub: "очень",              push: "💜 Я скучаю по тебе" },
+    { icon: "🤗", label: "Обнимашки", sub: "срочно",            push: "🤗 Хочу обнимашки" }
+  ],
+
+  // Защита от случайных повторов, секунды
+  cooldownSec: 5
+};
+/* ========================================================== */
+
+const $ = (s) => document.querySelector(s);
+$("#title").textContent = CFG.title;
+$("#subtitle").textContent = CFG.subtitle;
+document.title = CFG.title;
+
+/* ---- Счётчик дней ---- */
+function plural(n, one, few, many){
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return many;
+  if (b > 1 && b < 5) return few;
+  if (b === 1) return one;
+  return many;
+}
+function renderCounter(){
+  const start = new Date(CFG.startDate + "T00:00:00");
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.max(0, Math.round((today - start) / 86400000));
+  $("#days").textContent = days;
+  $("#cap").textContent = plural(days, "день", "дня", "дней") + " вместе";
+
+  let y = today.getFullYear() - start.getFullYear();
+  let m = today.getMonth() - start.getMonth();
+  if (today.getDate() < start.getDate()) m--;
+  if (m < 0) { y--; m += 12; }
+  const parts = [];
+  if (y > 0) parts.push(y + " " + plural(y, "год", "года", "лет"));
+  if (m > 0) parts.push(m + " " + plural(m, "месяц", "месяца", "месяцев"));
+  $("#det").textContent = parts.join(" ");
+}
+renderCounter();
+setInterval(renderCounter, 60 * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) renderCounter(); });
+
+/* ---- Кнопки ---- */
+const toastEl = $("#toast");
+let toastTimer;
+function toast(text, isErr){
+  toastEl.textContent = text;
+  toastEl.classList.toggle("err", !!isErr);
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+}
+
+document.querySelectorAll(".tile").forEach((el) => {
+  const b = CFG.buttons[Number(el.dataset.i)];
+  el.innerHTML =
+    '<span class="ico">' + b.icon + '</span>' +
+    '<span class="lbl">' + b.label + '</span>' +
+    '<span class="sub">' + b.sub + '</span>';
+  el.addEventListener("click", () => send(el, b));
+});
+
+async function send(el, b){
+  if (el.disabled) return;
+  if (CFG.ntfyTopic === "ВСТАВЬ_СВОЮ_ТЕМУ") {
+    toast("Сначала впиши тему ntfy в настройках", true);
+    return;
+  }
+  el.disabled = true;
+  if (navigator.vibrate) navigator.vibrate(30);
+  try {
+    // Текст только в теле запроса, без заголовков: так кириллица и эмодзи не ломаются
+    const r = await fetch(CFG.ntfyServer + "/" + encodeURIComponent(CFG.ntfyTopic), {
+      method: "POST",
+      body: b.push
+    });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    el.classList.add("sent");
+    setTimeout(() => el.classList.remove("sent"), 600);
+    toast("Отправлено ✓");
+  } catch (e) {
+    toast("Не отправилось. Проверь интернет и попробуй ещё раз", true);
+  }
+  setTimeout(() => { el.disabled = false; }, CFG.cooldownSec * 1000);
+}
+</script>
+</body>
+</html>
